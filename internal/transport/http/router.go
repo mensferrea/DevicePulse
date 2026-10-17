@@ -1,12 +1,17 @@
 package http
 
 import (
+	"embed"
+	"io/fs"
 	"net/http"
 	"net/http/pprof"
 
 	"DevicePulse/internal/service"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+//go:embed static/*
+var staticFS embed.FS
 
 type RouterConfig struct {
 	ControlHandler *ControlHandler
@@ -30,6 +35,16 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("GET /debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
+
+	staticSub, err := fs.Sub(staticFS, "static")
+	if err == nil {
+		fileServer := http.FileServer(http.FS(staticSub))
+		mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+			r.URL.Path = "/"
+			fileServer.ServeHTTP(w, r)
+		})
+		mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
+	}
 
 	if cfg.ControlHandler != nil {
 		ch := cfg.ControlHandler

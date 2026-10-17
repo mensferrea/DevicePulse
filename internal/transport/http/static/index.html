@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevicePulse — Панель управления и мониторинга</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#0B0F19',
+                            800: '#111827',
+                            700: '#1F2937',
+                            600: '#374151'
+                        },
+                        brand: {
+                            primary: '#3B82F6',
+                            success: '#10B981',
+                            warning: '#F59E0B',
+                            danger: '#EF4444'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.08); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 2s infinite ease-in-out;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-dark-900 text-gray-100 min-h-screen flex flex-col font-sans antialiased">
+
+    <!-- Верхняя навигация -->
+    <header class="bg-dark-800 border-b border-gray-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">DevicePulse</span>
+                    <span class="text-xs text-gray-400 block -mt-1 font-mono">Telemetry & Monitoring</span>
+                </div>
+            </div>
+
+            <!-- Статус системы и вкладки -->
+            <div class="flex items-center space-x-6">
+                <nav class="hidden md:flex space-x-1" id="nav-tabs">
+                    <button onclick="switchTab('devices')" id="tab-btn-devices" class="tab-btn px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">Устройства</button>
+                    <button onclick="switchTab('simulator')" id="tab-btn-simulator" class="tab-btn px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800">Эмулятор данных</button>
+                    <button onclick="switchTab('live')" id="tab-btn-live" class="tab-btn px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800">Графики реального времени</button>
+                    <button onclick="switchTab('alerts')" id="tab-btn-alerts" class="tab-btn px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800 flex items-center">
+                        Инциденты и правила
+                        <span id="nav-firing-badge" class="ml-2 hidden px-1.5 py-0.5 text-xs bg-red-600 text-white font-bold rounded-full">0</span>
+                    </button>
+                    <button onclick="switchTab('analytics')" id="tab-btn-analytics" class="tab-btn px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800">Агрегаты</button>
+                </nav>
+
+                <div class="flex items-center space-x-2 bg-dark-700/60 border border-gray-700 px-3 py-1.5 rounded-full text-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></span>
+                    <span class="text-gray-300 font-mono" id="system-status">Онлайн</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основной контент -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+        <!-- Вкладка: Устройства -->
+        <section id="tab-devices" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-dark-800 border border-gray-800 p-5 rounded-xl">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Всего устройств</div>
+                    <div class="mt-2 text-3xl font-extrabold text-white" id="stat-total-devices">0</div>
+                </div>
+                <div class="bg-dark-800 border border-gray-800 p-5 rounded-xl">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Online</div>
+                    <div class="mt-2 text-3xl font-extrabold text-emerald-400" id="stat-online-devices">0</div>
+                </div>
+                <div class="bg-dark-800 border border-gray-800 p-5 rounded-xl">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Offline</div>
+                    <div class="mt-2 text-3xl font-extrabold text-rose-400" id="stat-offline-devices">0</div>
+                </div>
+                <div class="bg-dark-800 border border-gray-800 p-5 rounded-xl">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Неизвестно</div>
+                    <div class="mt-2 text-3xl font-extrabold text-gray-400" id="stat-unknown-devices">0</div>
+                </div>
+            </div>
+
+            <!-- Регистрация и список устройств -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Форма добавления -->
+                <div class="bg-dark-800 border border-gray-800 rounded-xl p-6 h-fit">
+                    <h2 class="text-lg font-semibold text-white mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                        Регистрация устройства
+                    </h2>
+                    <form id="form-register-device" onsubmit="registerDevice(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Название устройства</label>
+                            <input type="text" id="reg-name" required placeholder="Например: boiler-controller-01" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Группа устройств</label>
+                            <input type="text" id="reg-group" value="default" placeholder="default" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm transition">
+                            Зарегистрировать и получить ключ
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Таблица устройств -->
+                <div class="lg:col-span-2 bg-dark-800 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
+                    <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-dark-800">
+                        <h3 class="font-semibold text-white">Список зарегистрированных устройств</h3>
+                        <button onclick="loadDevices()" class="text-xs text-blue-400 hover:text-blue-300 flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            Обновить
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-left text-sm text-gray-400">
+                            <thead class="bg-dark-900 text-xs uppercase font-medium text-gray-500 border-b border-gray-800">
+                                <tr>
+                                    <th class="px-4 py-3">Имя / ID</th>
+                                    <th class="px-4 py-3">Группа</th>
+                                    <th class="px-4 py-3">Статус</th>
+                                    <th class="px-4 py-3">Активность</th>
+                                    <th class="px-4 py-3 text-right">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devices-table-body" class="divide-y divide-gray-800">
+                                <tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Загрузка устройств...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Вкладка: Эмулятор телеметрии -->
+        <section id="tab-simulator" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Панель управления отправкой -->
+                <div class="bg-dark-800 border border-gray-800 rounded-xl p-6 space-y-5">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        Генератор / Отправка измерений
+                    </h2>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Выбор целевого устройства</label>
+                        <select id="sim-device-select" onchange="onSimulatorDeviceChange()" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                            <option value="">-- Выберите устройство --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Ключ устройства (X-Device-Key)</label>
+                        <input type="text" id="sim-api-key" placeholder="dp_..." class="w-full font-mono bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Метрика</label>
+                            <select id="sim-metric" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                                <option value="temperature">temperature (°C)</option>
+                                <option value="humidity">humidity (%)</option>
+                                <option value="pressure">pressure (bar)</option>
+                                <option value="voltage">voltage (V)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Значение</label>
+                            <input type="number" step="0.1" id="sim-value" value="25.5" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <!-- Быстрые пресеты -->
+                    <div>
+                        <span class="text-xs text-gray-400 mb-2 block">Быстрые сценарии:</span>
+                        <div class="flex space-x-2">
+                            <button onclick="setSimPreset('temperature', 22.0)" class="px-2.5 py-1 text-xs bg-dark-700 hover:bg-gray-600 rounded text-gray-300">Норма (22°C)</button>
+                            <button onclick="setSimPreset('temperature', 85.0)" class="px-2.5 py-1 text-xs bg-amber-900/60 border border-amber-600 hover:bg-amber-800 rounded text-amber-200">Предупреждение (85°C)</button>
+                            <button onclick="setSimPreset('temperature', 105.0)" class="px-2.5 py-1 text-xs bg-red-900/60 border border-red-600 hover:bg-red-800 rounded text-red-200">Критический перегрев (105°C)</button>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 flex space-x-3">
+                        <button onclick="sendSingleMeasurement()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm transition">
+                            Отправить одиночное
+                        </button>
+                        <button id="btn-stream-toggle" onclick="toggleStreamSimulation()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-sm transition flex items-center justify-center">
+                            <span>Запустить авто-поток (1 сек)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Лог отправки -->
+                <div class="bg-dark-800 border border-gray-800 rounded-xl p-6 flex flex-col h-[450px]">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-semibold text-white text-sm">Журнал запросов и событий</h3>
+                        <button onclick="clearSimLogs()" class="text-xs text-gray-400 hover:text-gray-200">Очистить</button>
+                    </div>
+                    <div id="sim-console" class="flex-1 bg-dark-900 border border-gray-800 rounded-lg p-3 font-mono text-xs overflow-y-auto space-y-1 text-gray-300">
+                        <div class="text-gray-500">Готов к отправке телеметрии...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Вкладка: Графики в реальном времени -->
+        <section id="tab-live" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-dark-800 border border-gray-800 p-4 rounded-xl gap-4">
+                <div class="flex items-center space-x-3 w-full sm:w-auto">
+                    <label class="text-xs font-medium text-gray-400 whitespace-nowrap">Устройство:</label>
+                    <select id="live-device-select" onchange="onLiveDeviceSelect()" class="bg-dark-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 w-full sm:w-64">
+                        <option value="">-- Выберите устройство --</option>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <label class="flex items-center text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" id="live-auto-refresh" checked class="mr-2 rounded bg-dark-900 border-gray-700 text-blue-600">
+                        Автообновление (каждые 2 сек)
+                    </label>
+                    <button onclick="fetchLiveState()" class="px-3 py-1.5 text-xs bg-dark-700 hover:bg-gray-600 rounded text-gray-200">Обновить сейчас</button>
+                </div>
+            </div>
+
+            <!-- Карточки последних значений метрик -->
+            <div id="live-metrics-cards" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-dark-800 border border-gray-800 p-4 rounded-xl">
+                    <span class="text-xs text-gray-400">Температура</span>
+                    <div class="text-2xl font-bold text-white mt-1" id="metric-val-temperature">—</div>
+                </div>
+                <div class="bg-dark-800 border border-gray-800 p-4 rounded-xl">
+                    <span class="text-xs text-gray-400">Влажность</span>
+                    <div class="text-2xl font-bold text-white mt-1" id="metric-val-humidity">—</div>
+                </div>
+                <div class="bg-dark-800 border border-gray-800 p-4 rounded-xl">
+                    <span class="text-xs text-gray-400">Давление</span>
+                    <div class="text-2xl font-bold text-white mt-1" id="metric-val-pressure">—</div>
+                </div>
+                <div class="bg-dark-800 border border-gray-800 p-4 rounded-xl">
+                    <span class="text-xs text-gray-400">Напряжение</span>
+                    <div class="text-2xl font-bold text-white mt-1" id="metric-val-voltage">—</div>
+                </div>
+            </div>
+
+            <!-- График динамики -->
+            <div class="bg-dark-800 border border-gray-800 rounded-xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-white">Временной ряд телеметрии (последние точки)</h3>
+                    <div class="text-xs text-gray-400 font-mono" id="chart-point-count">0 точек</div>
+                </div>
+                <div class="h-80 w-full">
+                    <canvas id="telemetryChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Вкладка: Инциденты и Правила -->
+        <section id="tab-alerts" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Создание правила -->
+                <div class="bg-dark-800 border border-gray-800 rounded-xl p-6 h-fit space-y-4">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        Создать правило оповещения
+                    </h2>
+                    <form id="form-create-rule" onsubmit="createAlertRule(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Название правила</label>
+                            <input type="text" id="rule-name" required placeholder="Например: Критическая температура" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Метрика</label>
+                                <input type="text" id="rule-metric" value="temperature" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Условие</label>
+                                <select id="rule-op" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                                    <option value=">">&gt; (Больше)</option>
+                                    <option value=">=">&gt;= (Больше или равно)</option>
+                                    <option value="<">&lt; (Меньше)</option>
+                                    <option value="<=">&lt;= (Меньше или равно)</option>
+                                    <option value="==">== (Равно)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Порог</label>
+                                <input type="number" step="0.1" id="rule-threshold" value="80.0" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Важность</label>
+                                <select id="rule-severity" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                                    <option value="critical">Critical</option>
+                                    <option value="warning" selected>Warning</option>
+                                    <option value="info">Info</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1">Webhook URL (необязательно)</label>
+                            <input type="url" id="rule-webhook" placeholder="https://webhook.site/..." class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                        <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 rounded-lg text-sm transition mt-2">
+                            Сохранить правило
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Списки правил и активных инцидентов -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Активные инциденты -->
+                    <div class="bg-dark-800 border border-gray-800 rounded-xl overflow-hidden">
+                        <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+                            <h3 class="font-semibold text-white flex items-center">
+                                <span class="w-2.5 h-2.5 rounded-full bg-red-500 mr-2 animate-pulse"></span>
+                                Активные инциденты и предупреждения
+                            </h3>
+                            <button onclick="loadAlerts()" class="text-xs text-blue-400 hover:text-blue-300">Обновить</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-400">
+                                <thead class="bg-dark-900 text-xs uppercase font-medium text-gray-500 border-b border-gray-800">
+                                    <tr>
+                                        <th class="px-4 py-2.5">Устройство</th>
+                                        <th class="px-4 py-2.5">Метрика / Значение</th>
+                                        <th class="px-4 py-2.5">Порог</th>
+                                        <th class="px-4 py-2.5">Статус</th>
+                                        <th class="px-4 py-2.5">Время</th>
+                                        <th class="px-4 py-2.5 text-right">Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alerts-table-body" class="divide-y divide-gray-800">
+                                    <tr><td colspan="6" class="px-4 py-4 text-center text-gray-500">Нет активных инцидентов</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Таблица правил -->
+                    <div class="bg-dark-800 border border-gray-800 rounded-xl overflow-hidden">
+                        <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+                            <h3 class="font-semibold text-white text-sm">Сконфигурированные правила</h3>
+                            <button onclick="loadAlertRules()" class="text-xs text-blue-400 hover:text-blue-300">Обновить</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-400">
+                                <thead class="bg-dark-900 text-xs uppercase font-medium text-gray-500 border-b border-gray-800">
+                                    <tr>
+                                        <th class="px-4 py-2.5">Правило</th>
+                                        <th class="px-4 py-2.5">Метрика</th>
+                                        <th class="px-4 py-2.5">Условие</th>
+                                        <th class="px-4 py-2.5">Важность</th>
+                                        <th class="px-4 py-2.5 text-right">Управление</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rules-table-body" class="divide-y divide-gray-800">
+                                    <tr><td colspan="5" class="px-4 py-4 text-center text-gray-500">Загрузка правил...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Вкладка: Агрегаты -->
+        <section id="tab-analytics" class="tab-content hidden space-y-6">
+            <div class="bg-dark-800 border border-gray-800 p-6 rounded-xl space-y-4">
+                <h2 class="text-lg font-semibold text-white">Расчет агрегированной статистики по временным интервалам (1m / 5m)</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Устройство</label>
+                        <select id="agg-device-select" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                            <option value="">-- Выберите устройство --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Метрика</label>
+                        <select id="agg-metric-select" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                            <option value="temperature">temperature</option>
+                            <option value="humidity">humidity</option>
+                            <option value="pressure">pressure</option>
+                            <option value="voltage">voltage</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Интервал окна</label>
+                        <select id="agg-interval" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                            <option value="1m">1 минута (date_bin)</option>
+                            <option value="5m">5 минут (date_bin)</option>
+                            <option value="1h">1 час (date_bin)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="fetchAggregates()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm transition">
+                            Рассчитать статистику
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Таблица агрегатов -->
+            <div class="bg-dark-800 border border-gray-800 rounded-xl overflow-hidden">
+                <div class="p-4 border-b border-gray-800">
+                    <h3 class="font-semibold text-white text-sm">Результаты агрегации (PostgreSQL date_bin)</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-gray-400">
+                        <thead class="bg-dark-900 text-xs uppercase font-medium text-gray-500 border-b border-gray-800">
+                            <tr>
+                                <th class="px-4 py-3">Окно (Bucket)</th>
+                                <th class="px-4 py-3">Минимум</th>
+                                <th class="px-4 py-3">Максимум</th>
+                                <th class="px-4 py-3">Среднее (AVG)</th>
+                                <th class="px-4 py-3">Кол-во точек</th>
+                            </tr>
+                        </thead>
+                        <tbody id="aggregates-table-body" class="divide-y divide-gray-800">
+                            <tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Выберите устройство и нажмите «Рассчитать»</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Модальное окно выданного ключа -->
+    <div id="modal-key" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-dark-800 border border-gray-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-2 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Ключ устройства успешно выпущен!
+            </h3>
+            <p class="text-xs text-gray-400 mb-4">Сохраните этот API-ключ прямо сейчас. В базе хранится только его SHA-256 хеш, повторно отобразить исходный ключ будет невозможно.</p>
+            <div class="bg-dark-900 border border-gray-700 p-3 rounded-lg flex items-center justify-between mb-5">
+                <span id="modal-key-val" class="font-mono text-xs text-emerald-300 break-all select-all"></span>
+                <button onclick="copyModalKey()" class="ml-2 px-2.5 py-1 text-xs bg-dark-700 hover:bg-gray-600 rounded text-gray-200">Копировать</button>
+            </div>
+            <button onclick="closeKeyModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm transition">Понятно</button>
+        </div>
+    </div>
+
+    <!-- Toast уведомления -->
+    <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+    <script>
+        // Состояние приложения
+        let devices = [];
+        let deviceKeysCache = {};
+        let streamIntervalId = null;
+        let chartInstance = null;
+        let liveRefreshIntervalId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            loadDevices();
+            loadAlerts();
+            loadAlertRules();
+
+            // Фоновое обновление алертов каждые 5 сек
+            setInterval(loadAlerts, 5000);
+            // Фоновое обновление статуса устройства каждые 3 сек
+            setInterval(() => {
+                if (!document.hidden && document.getElementById('tab-live').classList.contains('hidden') === false) {
+                    if (document.getElementById('live-auto-refresh').checked) {
+                        fetchLiveState();
+                    }
+                }
+            }, 2500);
+        });
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-gray-700', 'text-white');
+                btn.classList.add('text-gray-400');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            activeBtn.classList.add('bg-gray-700', 'text-white');
+            activeBtn.classList.remove('text-gray-400');
+
+            if (tabName === 'live') {
+                setTimeout(() => { if (chartInstance) chartInstance.resize(); }, 50);
+                fetchLiveState();
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bg = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-blue-600';
+            toast.className = `${bg} text-white text-xs px-4 py-2.5 rounded-lg shadow-lg flex items-center transition transform duration-300 translate-y-2 opacity-0`;
+            toast.innerText = message;
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function loadDevices() {
+            try {
+                const res = await fetch('/api/v1/devices');
+                devices = await res.json() || [];
+                renderDevices();
+                populateDeviceSelects();
+                updateDeviceStats();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function updateDeviceStats() {
+            document.getElementById('stat-total-devices').innerText = devices.length;
+            document.getElementById('stat-online-devices').innerText = devices.filter(d => d.status === 'ONLINE').length;
+            document.getElementById('stat-offline-devices').innerText = devices.filter(d => d.status === 'OFFLINE').length;
+            document.getElementById('stat-unknown-devices').innerText = devices.filter(d => d.status === 'UNKNOWN').length;
+        }
+
+        function renderDevices() {
+            const tbody = document.getElementById('devices-table-body');
+            if (devices.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Нет зарегистрированных устройств. Создайте первое устройство слева!</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = devices.map(d => {
+                let badgeClass = 'bg-gray-700 text-gray-300';
+                if (d.status === 'ONLINE') badgeClass = 'bg-emerald-900/60 text-emerald-400 border border-emerald-700';
+                if (d.status === 'OFFLINE') badgeClass = 'bg-rose-900/60 text-rose-400 border border-rose-700';
+
+                const lastSeen = d.last_seen_at ? new Date(d.last_seen_at).toLocaleTimeString() : 'Никогда';
+
+                return `
+                    <tr class="hover:bg-dark-700/40 transition">
+                        <td class="px-4 py-3">
+                            <div class="font-medium text-white">${escapeHtml(d.name)}</div>
+                            <div class="text-xs text-gray-500 font-mono">${d.id}</div>
+                        </td>
+                        <td class="px-4 py-3"><span class="px-2 py-0.5 rounded bg-dark-700 text-xs text-gray-300">${escapeHtml(d.group)}</span></td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-0.5 rounded text-xs font-semibold ${badgeClass}">${d.status}</span>
+                        </td>
+                        <td class="px-4 py-3 text-xs">${lastSeen}</td>
+                        <td class="px-4 py-3 text-right space-x-2">
+                            <button onclick="issueNewKey('${d.id}')" class="text-xs text-blue-400 hover:text-blue-300">Новый ключ</button>
+                            <button onclick="deleteDevice('${d.id}')" class="text-xs text-rose-400 hover:text-rose-300">Удалить</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function populateDeviceSelects() {
+            const simSelect = document.getElementById('sim-device-select');
+            const liveSelect = document.getElementById('live-device-select');
+            const aggSelect = document.getElementById('agg-device-select');
+
+            const currentSim = simSelect.value;
+            const currentLive = liveSelect.value;
+            const currentAgg = aggSelect.value;
+
+            const options = ['<option value="">-- Выберите устройство --</option>']
+                .concat(devices.map(d => `<option value="${d.id}">${escapeHtml(d.name)} (${d.id.substring(0, 8)}...)</option>`))
+                .join('');
+
+            simSelect.innerHTML = options;
+            liveSelect.innerHTML = options;
+            aggSelect.innerHTML = options;
+
+            if (currentSim) simSelect.value = currentSim;
+            if (currentLive) liveSelect.value = currentLive;
+            if (currentAgg) aggSelect.value = currentAgg;
+
+            if (!liveSelect.value && devices.length > 0) {
+                liveSelect.value = devices[0].id;
+                fetchLiveState();
+            }
+        }
+
+        async function registerDevice(e) {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const group = document.getElementById('reg-group').value;
+
+            try {
+                const res = await fetch('/api/v1/devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, group })
+                });
+
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+
+                deviceKeysCache[data.device.id] = data.api_key;
+                showKeyModal(data.api_key);
+                document.getElementById('form-register-device').reset();
+                showToast('Устройство успешно зарегистрировано', 'success');
+                loadDevices();
+            } catch (err) {
+                showToast('Ошибка регистрации: ' + err.message, 'error');
+            }
+        }
+
+        async function issueNewKey(deviceId) {
+            try {
+                const res = await fetch(`/api/v1/devices/${deviceId}/keys`, { method: 'POST' });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                deviceKeysCache[deviceId] = data.api_key;
+                showKeyModal(data.api_key);
+            } catch (err) {
+                showToast('Ошибка выпуска ключа: ' + err.message, 'error');
+            }
+        }
+
+        async function deleteDevice(deviceId) {
+            if (!confirm('Вы уверены, что хотите удалить устройство?')) return;
+            try {
+                const res = await fetch(`/api/v1/devices/${deviceId}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error(await res.text());
+                showToast('Устройство удалено', 'success');
+                loadDevices();
+            } catch (err) {
+                showToast('Ошибка удаления: ' + err.message, 'error');
+            }
+        }
+
+        function showKeyModal(key) {
+            document.getElementById('modal-key-val').innerText = key;
+            document.getElementById('modal-key').classList.remove('hidden');
+        }
+
+        function closeKeyModal() {
+            document.getElementById('modal-key').classList.add('hidden');
+        }
+
+        function copyModalKey() {
+            const key = document.getElementById('modal-key-val').innerText;
+            navigator.clipboard.writeText(key);
+            showToast('Ключ скопирован в буфер обмена', 'success');
+        }
+
+        function onSimulatorDeviceChange() {
+            const devId = document.getElementById('sim-device-select').value;
+            if (deviceKeysCache[devId]) {
+                document.getElementById('sim-api-key').value = deviceKeysCache[devId];
+            }
+        }
+
+        function setSimPreset(metric, val) {
+            document.getElementById('sim-metric').value = metric;
+            document.getElementById('sim-value').value = val;
+        }
+
+        function logSim(msg, type = 'info') {
+            const consoleEl = document.getElementById('sim-console');
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-rose-400' : 'text-gray-300';
+            const line = document.createElement('div');
+            line.className = color;
+            line.innerHTML = `<span class="text-gray-600">[${time}]</span> ${escapeHtml(msg)}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function clearSimLogs() {
+            document.getElementById('sim-console').innerHTML = '';
+        }
+
+        async function sendSingleMeasurement() {
+            const devId = document.getElementById('sim-device-select').value;
+            const apiKey = document.getElementById('sim-api-key').value;
+            const metric = document.getElementById('sim-metric').value;
+            const value = parseFloat(document.getElementById('sim-value').value);
+
+            if (!apiKey) {
+                showToast('Укажите API-ключ устройства!', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/v1/telemetry', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Device-Key': apiKey
+                    },
+                    body: JSON.stringify({
+                        metric: metric,
+                        value: value,
+                        unit: 'standard',
+                        recorded_at: new Date().toISOString()
+                    })
+                });
+
+                if (res.status === 202) {
+                    logSim(`POST /api/v1/telemetry accepted: ${metric} = ${value}`, 'success');
+                    showToast('Измерение принято в обработку', 'success');
+                } else {
+                    const err = await res.text();
+                    logSim(`Ошибка ${res.status}: ${err}`, 'error');
+                }
+            } catch (err) {
+                logSim(`Ошибка сети: ${err.message}`, 'error');
+            }
+        }
+
+        function toggleStreamSimulation() {
+            const btn = document.getElementById('btn-stream-toggle');
+            if (streamIntervalId) {
+                clearInterval(streamIntervalId);
+                streamIntervalId = null;
+                btn.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+                btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+                btn.innerText = 'Запустить авто-поток (1 сек)';
+                logSim('Авто-поток остановлен');
+            } else {
+                const apiKey = document.getElementById('sim-api-key').value;
+                if (!apiKey) {
+                    showToast('Укажите API-ключ для запуска потока!', 'error');
+                    return;
+                }
+
+                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                btn.classList.add('bg-rose-600', 'hover:bg-rose-500');
+                btn.innerText = 'Остановить авто-поток';
+                logSim('Авто-поток запущен (отправка каждую секунду)...', 'success');
+
+                streamIntervalId = setInterval(async () => {
+                    const metric = document.getElementById('sim-metric').value;
+                    let baseVal = parseFloat(document.getElementById('sim-value').value) || 25;
+                    let val = Number((baseVal + (Math.random() * 4 - 2)).toFixed(1));
+
+                    try {
+                        const res = await fetch('/api/v1/telemetry', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Device-Key': apiKey
+                            },
+                            body: JSON.stringify({
+                                metric: metric,
+                                value: val,
+                                unit: 'standard',
+                                recorded_at: new Date().toISOString()
+                            })
+                        });
+                        if (res.status === 202) {
+                            logSim(`Поток -> ${metric}: ${val}`, 'success');
+                        } else {
+                            logSim(`Поток отклонён (${res.status})`, 'error');
+                        }
+                    } catch (e) {
+                        logSim(`Ошибка потока: ${e.message}`, 'error');
+                    }
+                }, 1000);
+            }
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('telemetryChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Температура (°C)',
+                            data: [],
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Влажность (%)',
+                            data: [],
+                            borderColor: '#10B981',
+                            borderWidth: 1.5,
+                            borderDash: [4, 4],
+                            fill: false,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(55, 65, 81, 0.3)' },
+                            ticks: { color: '#9CA3AF', maxTicksLimit: 10 }
+                        },
+                        y: {
+                            grid: { color: 'rgba(55, 65, 81, 0.3)' },
+                            ticks: { color: '#9CA3AF' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#D1D5DB' } }
+                    }
+                }
+            });
+        }
+
+        function onLiveDeviceSelect() {
+            fetchLiveState();
+        }
+
+        async function fetchLiveState() {
+            const devId = document.getElementById('live-device-select').value;
+            if (!devId) return;
+
+            try {
+                // 1. Быстрое состояние из Redis
+                const stateRes = await fetch(`/api/v1/devices/${devId}/state`);
+                if (stateRes.ok) {
+                    const state = await stateRes.json();
+                    if (state.metrics) {
+                        for (const m of ['temperature', 'humidity', 'pressure', 'voltage']) {
+                            const valEl = document.getElementById(`metric-val-${m}`);
+                            if (state.metrics[m]) {
+                                valEl.innerText = state.metrics[m].value + ' ' + (state.metrics[m].unit || '');
+                            }
+                        }
+                    }
+                }
+
+                // 2. Временной ряд из Postgres
+                const historyRes = await fetch(`/api/v1/devices/${devId}/measurements?limit=30`);
+                if (historyRes.ok) {
+                    const list = await historyRes.json() || [];
+                    list.reverse();
+
+                    const labels = [];
+                    const tempPoints = [];
+                    const humidityPoints = [];
+
+                    list.forEach(item => {
+                        const timeStr = new Date(item.recorded_at).toLocaleTimeString();
+                        labels.push(timeStr);
+                        if (item.metric === 'temperature') tempPoints.push(item.value);
+                        else tempPoints.push(null);
+
+                        if (item.metric === 'humidity') humidityPoints.push(item.value);
+                        else humidityPoints.push(null);
+                    });
+
+                    chartInstance.data.labels = labels;
+                    chartInstance.data.datasets[0].data = tempPoints;
+                    chartInstance.data.datasets[1].data = humidityPoints;
+                    chartInstance.update();
+
+                    document.getElementById('chart-point-count').innerText = `${list.length} точек в истории`;
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function createAlertRule(e) {
+            e.preventDefault();
+            const name = document.getElementById('rule-name').value;
+            const metric = document.getElementById('rule-metric').value;
+            const op = document.getElementById('rule-op').value;
+            const threshold = parseFloat(document.getElementById('rule-threshold').value);
+            const severity = document.getElementById('rule-severity').value;
+            const webhookUrl = document.getElementById('rule-webhook').value;
+
+            try {
+                const res = await fetch('/api/v1/alert-rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        metric: metric,
+                        operator: op,
+                        threshold: threshold,
+                        severity: severity,
+                        active: true,
+                        webhook_url: webhookUrl
+                    })
+                });
+
+                if (!res.ok) throw new Error(await res.text());
+                showToast('Правило оповещения сохранено', 'success');
+                document.getElementById('form-create-rule').reset();
+                loadAlertRules();
+            } catch (err) {
+                showToast('Ошибка сохранения: ' + err.message, 'error');
+            }
+        }
+
+        async function loadAlertRules() {
+            try {
+                const res = await fetch('/api/v1/alert-rules');
+                const rules = await res.json() || [];
+                const tbody = document.getElementById('rules-table-body');
+                if (rules.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-gray-500">Нет настроенных правил</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = rules.map(r => `
+                    <tr class="hover:bg-dark-700/40">
+                        <td class="px-4 py-2.5 font-medium text-white">${escapeHtml(r.name)}</td>
+                        <td class="px-4 py-2.5 font-mono text-xs text-blue-400">${escapeHtml(r.metric)}</td>
+                        <td class="px-4 py-2.5 font-mono text-xs">${r.operator} ${r.threshold}</td>
+                        <td class="px-4 py-2.5">
+                            <span class="px-2 py-0.5 rounded text-xs uppercase font-semibold ${r.severity === 'critical' ? 'bg-red-900/60 text-red-400 border border-red-700' : 'bg-amber-900/60 text-amber-400 border border-amber-700'}">${r.severity}</span>
+                        </td>
+                        <td class="px-4 py-2.5 text-right">
+                            <button onclick="deleteAlertRule('${r.id}')" class="text-xs text-rose-400 hover:text-rose-300">Удалить</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function deleteAlertRule(ruleId) {
+            if (!confirm('Удалить правило?')) return;
+            try {
+                const res = await fetch(`/api/v1/alert-rules/${ruleId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showToast('Правило удалено', 'success');
+                    loadAlertRules();
+                }
+            } catch (err) {
+                showToast('Ошибка удаления: ' + err.message, 'error');
+            }
+        }
+
+        async function loadAlerts() {
+            try {
+                const res = await fetch('/api/v1/alerts');
+                const alerts = await res.json() || [];
+                const tbody = document.getElementById('alerts-table-body');
+                const activeAlerts = alerts.filter(a => a.status === 'FIRING' || a.status === 'ACKNOWLEDGED');
+
+                const badge = document.getElementById('nav-firing-badge');
+                if (activeAlerts.length > 0) {
+                    badge.innerText = activeAlerts.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                if (alerts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-gray-500">Нет инцидентов</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = alerts.map(a => {
+                    let stBadge = 'bg-gray-700 text-gray-300';
+                    if (a.status === 'FIRING') stBadge = 'bg-red-600 text-white animate-pulse font-bold';
+                    if (a.status === 'ACKNOWLEDGED') stBadge = 'bg-amber-600 text-white';
+                    if (a.status === 'RESOLVED') stBadge = 'bg-emerald-900/60 text-emerald-400 border border-emerald-700';
+
+                    let actions = '';
+                    if (a.status === 'FIRING') {
+                        actions = `<button onclick="ackAlert('${a.id}')" class="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded">Подтвердить</button>`;
+                    }
+                    if (a.status !== 'RESOLVED') {
+                        actions += ` <button onclick="resolveAlert('${a.id}')" class="px-2 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded">Закрыть</button>`;
+                    }
+
+                    return `
+                        <tr class="hover:bg-dark-700/40">
+                            <td class="px-4 py-2.5 font-mono text-xs text-gray-300">${a.device_id.substring(0, 8)}...</td>
+                            <td class="px-4 py-2.5 font-bold text-white">${escapeHtml(a.metric)} = ${a.trigger_value}</td>
+                            <td class="px-4 py-2.5 text-xs text-gray-400">${a.threshold}</td>
+                            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded text-xs ${stBadge}">${a.status}</span></td>
+                            <td class="px-4 py-2.5 text-xs text-gray-400">${new Date(a.fired_at).toLocaleTimeString()}</td>
+                            <td class="px-4 py-2.5 text-right space-x-1">${actions}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function ackAlert(id) {
+            try {
+                const res = await fetch(`/api/v1/alerts/${id}/ack`, { method: 'POST' });
+                if (res.ok) {
+                    showToast('Инцидент подтвержден', 'success');
+                    loadAlerts();
+                }
+            } catch (e) {
+                showToast('Ошибка подтверждения', 'error');
+            }
+        }
+
+        async function resolveAlert(id) {
+            try {
+                const res = await fetch(`/api/v1/alerts/${id}/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: 'Закрыто оператором через UI' })
+                });
+                if (res.ok) {
+                    showToast('Инцидент закрыт', 'success');
+                    loadAlerts();
+                }
+            } catch (e) {
+                showToast('Ошибка закрытия', 'error');
+            }
+        }
+
+        async function fetchAggregates() {
+            const devId = document.getElementById('agg-device-select').value;
+            const metric = document.getElementById('agg-metric-select').value;
+            const interval = document.getElementById('agg-interval').value;
+
+            if (!devId) {
+                showToast('Выберите устройство!', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/v1/devices/${devId}/stats?metric=${metric}&interval=${interval}`);
+                const data = await res.json() || [];
+                const tbody = document.getElementById('aggregates-table-body');
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Нет данных для выбранного периода</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(item => `
+                    <tr class="hover:bg-dark-700/40">
+                        <td class="px-4 py-3 font-mono text-xs text-blue-400">${new Date(item.bucket).toLocaleString()}</td>
+                        <td class="px-4 py-3 text-emerald-400 font-mono">${item.min.toFixed(2)}</td>
+                        <td class="px-4 py-3 text-rose-400 font-mono">${item.max.toFixed(2)}</td>
+                        <td class="px-4 py-3 text-white font-mono font-semibold">${item.avg.toFixed(2)}</td>
+                        <td class="px-4 py-3 text-gray-400 font-mono">${item.count}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                showToast('Ошибка вычисления: ' + err.message, 'error');
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>
