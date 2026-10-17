@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devicepulse-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: devicepulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devicepulse"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: devicepulse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: devicepulse-nats
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - natsdata:/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: devicepulse-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    environment:
+      APP_ENV: production
+      HTTP_PORT: 8080
+      GRPC_PORT: 50051
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/devicepulse?sslmode=disable
+      REDIS_ADDR: redis:6379
+      NATS_URL: nats://nats:4222
+      NATS_STREAM: TELEMETRY
+      RATE_LIMIT_RPS: 500
+      WORKER_POOL_SIZE: 20
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+
+volumes:
+  pgdata:
+  redisdata:
+  natsdata:

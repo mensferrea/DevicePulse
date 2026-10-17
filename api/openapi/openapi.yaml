@@ -1,0 +1,289 @@
+openapi: 3.0.3
+info:
+  title: DevicePulse API
+  description: High-throughput telemetry collection, monitoring, and alerting backend platform.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        '200':
+          description: Ready
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      responses:
+        '200':
+          description: Prometheus exposition format
+
+  /api/v1/devices:
+    post:
+      summary: Register a new device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                group:
+                  type: string
+      responses:
+        '201':
+          description: Device registered
+    get:
+      summary: List registered devices
+      parameters:
+        - name: group
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of devices
+
+  /api/v1/devices/{id}:
+    get:
+      summary: Get device by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device details
+        '404':
+          description: Device not found
+    put:
+      summary: Update device
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated device
+    delete:
+      summary: Delete device
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Device deleted
+
+  /api/v1/devices/{id}/keys:
+    post:
+      summary: Issue a new device key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Key issued
+    get:
+      summary: List device keys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of key metadata
+
+  /api/v1/devices/{id}/state:
+    get:
+      summary: Get latest device state and metrics from cache
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Latest state
+
+  /api/v1/devices/{id}/measurements:
+    get:
+      summary: Query historical measurements
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: metric
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Historical measurements
+
+  /api/v1/devices/{id}/stats:
+    get:
+      summary: Query aggregated statistics (min, max, avg, count)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: metric
+          in: query
+          schema:
+            type: string
+        - name: interval
+          in: query
+          description: Bucket interval (e.g. 1m, 5m, 1h)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Statistics or bucket aggregates
+
+  /api/v1/telemetry:
+    post:
+      summary: Ingest single measurement
+      security:
+        - DeviceKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [metric, value, unit]
+              properties:
+                metric:
+                  type: string
+                value:
+                  type: number
+                unit:
+                  type: string
+                recorded_at:
+                  type: string
+                  format: date-time
+      responses:
+        '202':
+          description: Accepted for processing
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limited
+
+  /api/v1/telemetry/batch:
+    post:
+      summary: Ingest batch telemetry
+      security:
+        - DeviceKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [measurements]
+              properties:
+                batch_id:
+                  type: string
+                measurements:
+                  type: array
+                  items:
+                    type: object
+                    required: [metric, value, unit]
+                    properties:
+                      metric:
+                        type: string
+                      value:
+                        type: number
+                      unit:
+                        type: string
+                      recorded_at:
+                        type: string
+                        format: date-time
+      responses:
+        '202':
+          description: Batch accepted for processing
+
+  /api/v1/alert-rules:
+    post:
+      summary: Create alert rule
+      responses:
+        '201':
+          description: Rule created
+    get:
+      summary: List alert rules
+      responses:
+        '200':
+          description: List of rules
+
+  /api/v1/alerts:
+    get:
+      summary: List alerts
+      responses:
+        '200':
+          description: List of alerts
+
+  /api/v1/alerts/{id}/ack:
+    post:
+      summary: Acknowledge alert
+      responses:
+        '200':
+          description: Alert acknowledged
+
+  /api/v1/alerts/{id}/resolve:
+    post:
+      summary: Resolve alert
+      responses:
+        '200':
+          description: Alert resolved
+
+components:
+  securitySchemes:
+    DeviceKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Device-Key

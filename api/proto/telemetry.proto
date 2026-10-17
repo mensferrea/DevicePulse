@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package telemetry.v1;
+
+option go_package = "DevicePulse/internal/transport/grpc/pb;pb";
+
+import "google/protobuf/timestamp.proto";
+
+message MeasurementItem {
+  string metric = 1;
+  double value = 2;
+  string unit = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+message TelemetryBatchRequest {
+  string device_id = 1;
+  string batch_id = 2;
+  google.protobuf.Timestamp sent_at = 3;
+  repeated MeasurementItem measurements = 4;
+}
+
+message TelemetryBatchResponse {
+  bool success = 1;
+  int32 accepted_count = 2;
+  string message = 3;
+}
+
+message TelemetryStreamResponse {
+  bool success = 1;
+  int64 total_accepted = 2;
+  string message = 3;
+}
+
+service TelemetryService {
+  rpc SendBatch(TelemetryBatchRequest) returns (TelemetryBatchResponse);
+  rpc SendStream(stream TelemetryBatchRequest) returns (TelemetryStreamResponse);
+}
