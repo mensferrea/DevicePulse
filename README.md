@@ -4,12 +4,12 @@
   <p><b>Высокопроизводительная backend-платформа сбора, потоковой обработки и мониторинга телеметрии устройств</b></p>
 
   <p>
-    <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go" /></a>
-    <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" /></a>
-    <a href="https://redis.io/"><img src="https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis" /></a>
-    <a href="https://nats.io/"><img src="https://img.shields.io/badge/NATS-JetStream-27AAE1?style=for-the-badge&logo=natsdotio&logoColor=white" alt="NATS JetStream" /></a>
-    <a href="https://grpc.io/"><img src="https://img.shields.io/badge/gRPC-v1.84-244c5a?style=for-the-badge&logo=grpc&logoColor=white" alt="gRPC" /></a>
-    <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" /></a>
+    <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white" alt="Go" /></a>
+    <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white" alt="PostgreSQL" /></a>
+    <a href="https://redis.io/"><img src="https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white" alt="Redis" /></a>
+    <a href="https://nats.io/"><img src="https://img.shields.io/badge/NATS-JetStream-27AAE1?logo=natsdotio&logoColor=white" alt="NATS JetStream" /></a>
+    <a href="https://grpc.io/"><img src="https://img.shields.io/badge/gRPC-v1.84-244c5a?logo=grpc&logoColor=white" alt="gRPC" /></a>
+    <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white" alt="Docker" /></a>
     <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" />
   </p>
 </div>
