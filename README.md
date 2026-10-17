@@ -10,7 +10,7 @@
     <a href="https://nats.io/"><img src="https://img.shields.io/badge/NATS-JetStream-27AAE1?logo=natsdotio&logoColor=white" alt="NATS JetStream" /></a>
     <a href="https://grpc.io/"><img src="https://img.shields.io/badge/gRPC-v1.84-244c5a?logo=grpc&logoColor=white" alt="gRPC" /></a>
     <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white" alt="Docker" /></a>
-    <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" />
+    <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
   </p>
 </div>
 
