@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Build all binaries
+        run: |
+          go build -v -o bin/all-in-one ./cmd/all-in-one
+          go build -v -o bin/control-api ./cmd/control-api
+          go build -v -o bin/ingest-api ./cmd/ingest-api
+          go build -v -o bin/telemetry-processor ./cmd/telemetry-processor
+          go build -v -o bin/alert-worker ./cmd/alert-worker
+          go build -v -o bin/load-generator ./cmd/load-generator
